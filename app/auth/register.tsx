@@ -27,49 +27,57 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      const message = 'Please fill in all fields';
       if (Platform.OS === 'web') {
-        alert('Please fill in all fields');
+        alert(message);
       } else {
-        console.log('Please fill in all fields');
+        console.log(message);
       }
       return;
     }
 
     if (password !== confirmPassword) {
+      const message = 'Passwords do not match';
       if (Platform.OS === 'web') {
-        alert('Passwords do not match');
+        alert(message);
       } else {
-        console.log('Passwords do not match');
+        console.log(message);
       }
       return;
     }
 
     if (password.length < 6) {
+      const message = 'Password must be at least 6 characters';
       if (Platform.OS === 'web') {
-        alert('Password must be at least 6 characters');
+        alert(message);
       } else {
-        console.log('Password must be at least 6 characters');
+        console.log(message);
       }
       return;
     }
 
     setIsLoading(true);
     try {
+      console.log('Starting registration process...');
       const success = await register(email.trim(), password, name.trim());
       if (success) {
+        console.log('Registration successful, navigating to home...');
         router.replace('/(tabs)/home');
       } else {
+        const message = 'Failed to create account. Please try again.';
         if (Platform.OS === 'web') {
-          alert('Failed to create account');
+          alert(message);
         } else {
-          console.log('Failed to create account');
+          console.log(message);
         }
       }
-    } catch {
+    } catch (error) {
+      console.error('Registration error in component:', error);
+      const message = 'Something went wrong. Please try again.';
       if (Platform.OS === 'web') {
-        alert('Something went wrong. Please try again.');
+        alert(message);
       } else {
-        console.log('Something went wrong. Please try again.');
+        console.log(message);
       }
     } finally {
       setIsLoading(false);

@@ -23,10 +23,11 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      if (firebaseUser) {
-        await loadUserProfile(firebaseUser.uid);
+    const unsubscribe = onAuthStateChanged(auth, async (currentFirebaseUser) => {
+      console.log('Auth state changed:', currentFirebaseUser ? 'User logged in' : 'User logged out');
+      setFirebaseUser(currentFirebaseUser);
+      if (currentFirebaseUser) {
+        await loadUserProfile(currentFirebaseUser.uid, currentFirebaseUser);
       } else {
         setUser(null);
         await AsyncStorage.removeItem('user');
@@ -37,8 +38,10 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
     return unsubscribe;
   }, []);
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, currentFirebaseUser?: FirebaseUser | null) => {
     try {
+      const fbUser = currentFirebaseUser || firebaseUser;
+      
       // First try to load from local storage for faster loading
       const cachedUserData = await AsyncStorage.getItem('user');
       if (cachedUserData && cachedUserData.trim() && cachedUserData !== 'undefined' && cachedUserData !== 'null') {
@@ -59,8 +62,8 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
         if (profileData) {
           const userProfile: User = {
             id: userId,
-            email: firebaseUser?.email || '',
-            name: profileData.name || firebaseUser?.email?.split('@')[0] || 'User',
+            email: fbUser?.email || '',
+            name: profileData.name || fbUser?.email?.split('@')[0] || 'User',
             joinedDate: profileData.createdAt || new Date().toISOString(),
             bio: 'Explorer of cities and hidden gems',
             photo: profileData.photo,
@@ -76,8 +79,8 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
           // Create default profile if none exists
           const defaultProfile: User = {
             id: userId,
-            email: firebaseUser?.email || '',
-            name: firebaseUser?.email?.split('@')[0] || 'User',
+            email: fbUser?.email || '',
+            name: fbUser?.email?.split('@')[0] || 'User',
             joinedDate: new Date().toISOString(),
             bio: 'Explorer of cities and hidden gems',
           };
@@ -90,8 +93,8 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
         if (!user) {
           const defaultProfile: User = {
             id: userId,
-            email: firebaseUser?.email || '',
-            name: firebaseUser?.email?.split('@')[0] || 'User',
+            email: fbUser?.email || '',
+            name: fbUser?.email?.split('@')[0] || 'User',
             joinedDate: new Date().toISOString(),
             bio: 'Explorer of cities and hidden gems',
           };
@@ -106,26 +109,36 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      console.log('Attempting login for:', email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('Login successful for:', userCredential.user.email);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       return false;
     }
   };
 
   const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
+      console.log('Attempting registration for:', email);
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('Registration successful for:', userCredential.user.email);
+      
       // Create initial profile in backend
       try {
         await trpcClient.user.updateProfile.mutate({ name });
+        console.log('Initial profile created successfully');
       } catch (profileError) {
         console.error('Error creating initial profile:', profileError);
       }
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       return false;
     }
   };

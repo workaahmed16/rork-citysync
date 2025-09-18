@@ -24,31 +24,37 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
+      const message = 'Please fill in all fields';
       if (Platform.OS === 'web') {
-        alert('Please fill in all fields');
+        alert(message);
       } else {
-        console.log('Please fill in all fields');
+        console.log(message);
       }
       return;
     }
 
     setIsLoading(true);
     try {
+      console.log('Starting login process...');
       const success = await login(email.trim(), password);
       if (success) {
+        console.log('Login successful, navigating to home...');
         router.replace('/(tabs)/home');
       } else {
+        const message = 'Invalid email or password. Please check your credentials and try again.';
         if (Platform.OS === 'web') {
-          alert('Invalid email or password');
+          alert(message);
         } else {
-          console.log('Invalid email or password');
+          console.log(message);
         }
       }
-    } catch {
+    } catch (error) {
+      console.error('Login error in component:', error);
+      const message = 'Something went wrong. Please try again.';
       if (Platform.OS === 'web') {
-        alert('Something went wrong. Please try again.');
+        alert(message);
       } else {
-        console.log('Something went wrong. Please try again.');
+        console.log(message);
       }
     } finally {
       setIsLoading(false);
