@@ -42,19 +42,15 @@ export default function EditProfileScreen() {
   const [newInterest, setNewInterest] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Pick profile image
+  // --- Image Picker ---
   const handleImagePicker = async () => {
     if (Platform.OS === 'web') {
       Alert.alert('Not Available', 'Image picker is only available on mobile.');
       return;
     }
-
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Grant camera roll permissions to upload a profile photo.');
-        return;
-      }
+      if (status !== 'granted') return Alert.alert('Permission Required', 'Grant camera roll permissions.');
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -63,30 +59,28 @@ export default function EditProfileScreen() {
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        setProfilePhoto(result.assets[0].uri);
-      }
+      if (!result.canceled && result.assets[0]) setProfilePhoto(result.assets[0].uri);
     } catch (err) {
-      console.error(err);
+      console.error('Image Picker Error:', err);
       Alert.alert('Error', 'Failed to pick image.');
     }
   };
 
-  // Hobbies / Interests handlers
-  const handleAddItem = (item: string, list: string[], setter: (arr: string[]) => void, max = 10) => {
-    const sanitized = item.trim();
-    if (!sanitized) return;
-    if (sanitized.length > 50) return Alert.alert('Error', 'Too long (max 50 chars)');
-    if (list.includes(sanitized)) return;
-    if (list.length >= max) return Alert.alert('Limit Reached', `Max ${max} items allowed`);
-    setter([...list, sanitized]);
+  // --- Add / Remove Hobbies & Interests ---
+  const handleAddItem = (item: string, list: string[], setter: (arr: string[]) => void) => {
+    const trimmed = item.trim();
+    if (!trimmed) return;
+    if (trimmed.length > 50) return Alert.alert('Error', 'Too long (max 50 chars)');
+    if (list.includes(trimmed)) return;
+    if (list.length >= 10) return Alert.alert('Limit Reached', 'Maximum 10 items allowed');
+    setter([...list, trimmed]);
   };
 
   const handleRemoveItem = (index: number, list: string[], setter: (arr: string[]) => void) => {
     setter(list.filter((_, i) => i !== index));
   };
 
-  // Detect location
+  // --- Location ---
   const handleLocationPermission = async () => {
     clearLocationError();
     try {
@@ -102,7 +96,7 @@ export default function EditProfileScreen() {
     }
   };
 
-  // Save profile
+  // --- Save Profile with safe JSON handling ---
   const handleSave = async () => {
     if (!name.trim()) return Alert.alert('Error', 'Name is required');
     if (name.length > 100) return Alert.alert('Error', 'Name too long (max 100)');
@@ -119,7 +113,8 @@ export default function EditProfileScreen() {
         if (loc) locationData = { latitude: loc.lat, longitude: loc.lon };
       } catch {}
 
-      await updateProfile({
+      // Safe profile update: parse JSON only if it's valid
+      const response = await updateProfile({
         name: name.trim(),
         bio: bio.trim(),
         hobbies,
@@ -131,15 +126,20 @@ export default function EditProfileScreen() {
         location: locationData || undefined,
       });
 
-      if (sanitizedCity && sanitizedCountry) {
-        await updateUserLocation(sanitizedCity, sanitizedCountry);
+      try {
+        // Try JSON parsing if response is string
+        if (typeof response === 'string') JSON.parse(response);
+      } catch {
+        console.warn('Non-JSON response received from updateProfile', response);
       }
+
+      if (sanitizedCity && sanitizedCountry) await updateUserLocation(sanitizedCity, sanitizedCountry);
 
       Alert.alert('Profile Saved', `Updated${sanitizedCity && sanitizedCountry ? ` with location: ${sanitizedCity}, ${sanitizedCountry}` : ''}`);
       router.back();
     } catch (err: any) {
-      console.error(err);
-      Alert.alert('Error', err.message || 'Failed to update profile.');
+      console.error('Profile Save Error:', err);
+      Alert.alert('Error', err?.message || 'Failed to update profile.');
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +189,14 @@ export default function EditProfileScreen() {
           <Text style={styles.sectionTitle}>Basic Information</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Display Name</Text>
-            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="Enter name" placeholderTextColor={Colors.light.textSecondary} maxLength={100} />
+            <TextInput
+              style={styles.textInput}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter name"
+              placeholderTextColor={Colors.light.textSecondary}
+              maxLength={100}
+            />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Bio</Text>
@@ -218,8 +225,20 @@ export default function EditProfileScreen() {
           </View>
           {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
           <View style={styles.locationRow}>
-            <TextInput style={[styles.textInput, styles.locationInput]} value={city} onChangeText={(t) => { setCity(t); if (locationError) clearLocationError(); }} placeholder="City" placeholderTextColor={Colors.light.textSecondary} />
-            <TextInput style={[styles.textInput, styles.locationInput]} value={country} onChangeText={(t) => { setCountry(t); if (locationError) clearLocationError(); }} placeholder="Country" placeholderTextColor={Colors.light.textSecondary} />
+            <TextInput
+              style={[styles.textInput, styles.locationInput]}
+              value={city}
+              onChangeText={(t) => { setCity(t); if (locationError) clearLocationError(); }}
+              placeholder="City"
+              placeholderTextColor={Colors.light.textSecondary}
+            />
+            <TextInput
+              style={[styles.textInput, styles.locationInput]}
+              value={country}
+              onChangeText={(t) => { setCountry(t); if (locationError) clearLocationError(); }}
+              placeholder="Country"
+              placeholderTextColor={Colors.light.textSecondary}
+            />
           </View>
         </View>
 
@@ -247,22 +266,8 @@ export default function EditProfileScreen() {
   );
 }
 
-// Reusable component for Hobbies/Interests
-function ProfileListSection({
-  title,
-  items,
-  newItem,
-  onNewItemChange,
-  onAddItem,
-  onRemoveItem,
-}: {
-  title: string;
-  items: string[];
-  newItem: string;
-  onNewItemChange: (text: string) => void;
-  onAddItem: () => void;
-  onRemoveItem: (index: number) => void;
-}) {
+// --- Profile List Section ---
+function ProfileListSection({ title, items, newItem, onNewItemChange, onAddItem, onRemoveItem }: any) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -281,7 +286,7 @@ function ProfileListSection({
         </TouchableOpacity>
       </View>
       <View style={styles.hobbiesContainer}>
-        {items.map((item, index) => (
+        {items.map((item: string, index: number) => (
           <View key={`${item}-${index}`} style={styles.hobbyTag}>
             <Text style={styles.hobbyText}>{item}</Text>
             <TouchableOpacity style={styles.removeHobbyButton} onPress={() => onRemoveItem(index)}>
@@ -295,6 +300,7 @@ function ProfileListSection({
   );
 }
 
+// --- Styles (unchanged) ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.backgroundSecondary },
   content: { flex: 1 },
