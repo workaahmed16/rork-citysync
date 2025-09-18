@@ -5,7 +5,9 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const profileSchema = z.object({
   name: z.string().optional(),
+  bio: z.string().optional(),
   photo: z.string().optional(),
+  profilePhoto: z.string().optional(),
   hobbies: z.array(z.string()).optional(),
   interests: z.array(z.string()).optional(),
   city: z.string().optional(),
@@ -20,28 +22,40 @@ export const updateProfileProcedure = protectedProcedure
   .input(profileSchema)
   .mutation(async ({ input, ctx }: { input: z.infer<typeof profileSchema>; ctx: any }) => {
     const userId = ctx.user.id;
+    console.log('Updating profile for user:', userId, 'with data:', input);
+    
     const userRef = doc(db, 'users', userId);
     
     try {
+      // Clean up the input data - remove undefined values
+      const cleanInput = Object.fromEntries(
+        Object.entries(input).filter(([_, value]) => value !== undefined)
+      );
+      
+      console.log('Clean input data:', cleanInput);
+      
       const userDoc = await getDoc(userRef);
       
       if (userDoc.exists()) {
+        console.log('Updating existing document');
         await updateDoc(userRef, {
-          ...input,
+          ...cleanInput,
           updatedAt: new Date().toISOString(),
         });
       } else {
+        console.log('Creating new document');
         await setDoc(userRef, {
-          ...input,
+          ...cleanInput,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
       }
       
+      console.log('Profile updated successfully for user:', userId);
       return { success: true, message: 'Profile updated successfully' };
     } catch (error) {
-      console.error('Error updating profile:', error);
-      throw new Error('Failed to update profile');
+      console.error('Error updating profile for user:', userId, error);
+      throw new Error(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 

@@ -9,7 +9,9 @@ export default function BackendTestScreen() {
   const [name, setName] = useState<string>('');
   const [testEmail, setTestEmail] = useState<string>('test@example.com');
   const [testPassword, setTestPassword] = useState<string>('password123');
-  const { user, firebaseUser, isLoading, login, register } = useAuth();
+  const [testProfileName, setTestProfileName] = useState<string>('Test Profile Name');
+  const [testBio, setTestBio] = useState<string>('This is a test bio');
+  const { user, firebaseUser, isLoading, login, register, updateProfile } = useAuth();
   
   const hiMutation = trpc.example.hi.useMutation({
     onSuccess: (data) => {
@@ -59,6 +61,46 @@ export default function BackendTestScreen() {
       console.log(message);
     } else {
       Alert.alert('Registration Test', message);
+    }
+  };
+
+  const handleTestProfileUpdate = async () => {
+    if (!user || !firebaseUser) {
+      const message = 'Please login first to test profile update';
+      if (Platform.OS === 'web') {
+        console.error(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+      return;
+    }
+
+    try {
+      console.log('Testing profile update...');
+      const result = await updateProfile({
+        name: testProfileName,
+        bio: testBio,
+        hobbies: ['Testing', 'Debugging'],
+        interests: ['React Native', 'Firebase'],
+        city: 'Test City',
+        country: 'Test Country'
+      });
+      
+      console.log('Profile update result:', result);
+      const message = 'Profile update successful!';
+      if (Platform.OS === 'web') {
+        console.log(message);
+      } else {
+        Alert.alert('Success', message);
+      }
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      const message = `Profile update failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     }
   };
 
@@ -132,6 +174,33 @@ export default function BackendTestScreen() {
             <Text style={styles.buttonText}>Test Login</Text>
           </TouchableOpacity>
         </View>
+        
+        {/* Profile Update Test */}
+        {user && firebaseUser && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Profile Update Test</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Test profile name"
+              value={testProfileName}
+              onChangeText={setTestProfileName}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Test bio"
+              value={testBio}
+              onChangeText={setTestBio}
+              multiline
+            />
+            
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={handleTestProfileUpdate}
+            >
+              <Text style={styles.buttonText}>Test Profile Update</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         
         <Text style={styles.info}>
           This will test both tRPC backend and Firebase Auth

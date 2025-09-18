@@ -13,7 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  updateProfile: (updates: Partial<User>) => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<{ success: boolean; message: string; }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -65,8 +65,9 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
             email: fbUser?.email || '',
             name: profileData.name || fbUser?.email?.split('@')[0] || 'User',
             joinedDate: profileData.createdAt || new Date().toISOString(),
-            bio: 'Explorer of cities and hidden gems',
-            photo: profileData.photo,
+            bio: profileData.bio || 'Explorer of cities and hidden gems',
+            photo: profileData.photo || profileData.profilePhoto,
+            profilePhoto: profileData.profilePhoto || profileData.photo,
             hobbies: profileData.hobbies || [],
             interests: profileData.interests || [],
             city: profileData.city,
@@ -155,13 +156,20 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
   };
 
   const updateProfile = async (updates: Partial<User>) => {
-    if (!user || !firebaseUser) return;
+    if (!user || !firebaseUser) {
+      console.error('No user or firebaseUser available for profile update');
+      throw new Error('User not authenticated');
+    }
     
     try {
+      console.log('Updating profile with data:', updates);
+      
       // Update in backend first
-      await trpcClient.user.updateProfile.mutate({
+      const result = await trpcClient.user.updateProfile.mutate({
         name: updates.name,
+        bio: updates.bio,
         photo: updates.photo,
+        profilePhoto: updates.profilePhoto,
         hobbies: updates.hobbies,
         interests: updates.interests,
         city: updates.city,
@@ -169,16 +177,23 @@ export const [AuthProvider, useAuth] = createContextHook((): AuthContextType => 
         location: updates.location,
       });
       
+      console.log('Backend update result:', result);
+      
       // Update local state and storage
       const updatedUser = { ...user, ...updates };
+      console.log('Updated user object:', updatedUser);
+      
       const userString = JSON.stringify(updatedUser);
       if (userString && userString !== '[object Object]' && userString !== 'undefined') {
         await AsyncStorage.setItem('user', userString);
         setUser(updatedUser);
+        console.log('Profile updated successfully in local storage');
       } else {
         console.error('Failed to stringify user data:', updatedUser);
         throw new Error('Invalid user data for storage');
       }
+      
+      return result;
     } catch (error) {
       console.error('Profile update error:', error);
       throw error;

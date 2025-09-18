@@ -108,12 +108,11 @@ export default function EditProfileScreen() {
       const sanitizedCountry = country.trim();
 
       let locationData;
-      try {
-        const loc = await detectAndSetLocation();
-        if (loc) locationData = { latitude: loc.lat, longitude: loc.lon };
-      } catch {}
+      if (user?.location) {
+        locationData = user.location;
+      }
 
-      // Safe profile update: parse JSON only if it's valid
+      // Update profile
       const response = await updateProfile({
         name: name.trim(),
         bio: bio.trim(),
@@ -126,12 +125,7 @@ export default function EditProfileScreen() {
         location: locationData || undefined,
       });
 
-      try {
-        // Try JSON parsing if response is string
-        if (typeof response === 'string') JSON.parse(response);
-      } catch {
-        console.warn('Non-JSON response received from updateProfile', response);
-      }
+      console.log('Profile update response:', response);
 
       if (sanitizedCity && sanitizedCountry) await updateUserLocation(sanitizedCity, sanitizedCountry);
 
@@ -267,7 +261,21 @@ export default function EditProfileScreen() {
 }
 
 // --- Profile List Section ---
-function ProfileListSection({ title, items, newItem, onNewItemChange, onAddItem, onRemoveItem }: any) {
+function ProfileListSection({ 
+  title, 
+  items, 
+  newItem, 
+  onNewItemChange, 
+  onAddItem, 
+  onRemoveItem 
+}: {
+  title: string;
+  items: string[];
+  newItem: string;
+  onNewItemChange: (value: string) => void;
+  onAddItem: () => void;
+  onRemoveItem: (index: number) => void;
+}) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
