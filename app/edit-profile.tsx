@@ -19,10 +19,18 @@ import { useLocationPermission } from '@/contexts/location-permission-context';
 import Colors from '@/constants/colors';
 
 export default function EditProfileScreen() {
-  const { user, updateProfile } = useAuth();
-  const { userCity, userCountry, updateUserLocation, requestLocationPermission, isLoadingLocation, locationError, clearLocationError, detectAndSetLocation } = useLocationPermission();
   const insets = useSafeAreaInsets();
-  
+  const { user, updateProfile } = useAuth();
+  const {
+    userCity,
+    userCountry,
+    updateUserLocation,
+    isLoadingLocation,
+    locationError,
+    clearLocationError,
+    detectAndSetLocation,
+  } = useLocationPermission();
+
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [hobbies, setHobbies] = useState<string[]>(user?.hobbies || []);
@@ -34,16 +42,17 @@ export default function EditProfileScreen() {
   const [newInterest, setNewInterest] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Pick profile image
   const handleImagePicker = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert('Not Available', 'Image picker is not available on web. Please use a mobile device.');
+      Alert.alert('Not Available', 'Image picker is only available on mobile.');
       return;
     }
 
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload a profile photo.');
+        Alert.alert('Permission Required', 'Grant camera roll permissions to upload a profile photo.');
         return;
       }
 
@@ -57,141 +66,80 @@ export default function EditProfileScreen() {
       if (!result.canceled && result.assets[0]) {
         setProfilePhoto(result.assets[0].uri);
       }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to pick image.');
     }
   };
 
-  const handleAddHobby = () => {
-    if (!newHobby.trim()) return;
-    
-    if (newHobby.length > 50) {
-      Alert.alert('Error', 'Hobby name is too long (max 50 characters)');
-      return;
-    }
-    
-    if (hobbies.length >= 10) {
-      Alert.alert('Limit Reached', 'You can only add up to 10 hobbies');
-      return;
-    }
-    
-    const sanitizedHobby = newHobby.trim();
-    if (!hobbies.includes(sanitizedHobby)) {
-      setHobbies([...hobbies, sanitizedHobby]);
-      setNewHobby('');
-    }
+  // Hobbies / Interests handlers
+  const handleAddItem = (item: string, list: string[], setter: (arr: string[]) => void, max = 10) => {
+    const sanitized = item.trim();
+    if (!sanitized) return;
+    if (sanitized.length > 50) return Alert.alert('Error', 'Too long (max 50 chars)');
+    if (list.includes(sanitized)) return;
+    if (list.length >= max) return Alert.alert('Limit Reached', `Max ${max} items allowed`);
+    setter([...list, sanitized]);
   };
 
-  const handleRemoveHobby = (index: number) => {
-    setHobbies(hobbies.filter((_, i) => i !== index));
+  const handleRemoveItem = (index: number, list: string[], setter: (arr: string[]) => void) => {
+    setter(list.filter((_, i) => i !== index));
   };
 
-  const handleAddInterest = () => {
-    if (!newInterest.trim()) return;
-    
-    if (newInterest.length > 50) {
-      Alert.alert('Error', 'Interest name is too long (max 50 characters)');
-      return;
-    }
-    
-    if (interests.length >= 10) {
-      Alert.alert('Limit Reached', 'You can only add up to 10 interests');
-      return;
-    }
-    
-    const sanitizedInterest = newInterest.trim();
-    if (!interests.includes(sanitizedInterest)) {
-      setInterests([...interests, sanitizedInterest]);
-      setNewInterest('');
-    }
-  };
-
-  const handleRemoveInterest = (index: number) => {
-    setInterests(interests.filter((_, i) => i !== index));
-  };
-
+  // Detect location
   const handleLocationPermission = async () => {
     clearLocationError();
     try {
-      const result = await detectAndSetLocation();
-      if (result) {
-        setCity(result.city);
-        setCountry(result.country);
-        if (Platform.OS === 'web') {
-          console.log(`Profile updated with current location: ${result.city}, ${result.country}`);
-        } else {
-          Alert.alert('Success', `Profile updated with current location: ${result.city}, ${result.country}`);
-        }
-      } else if (!isLoadingLocation && locationError) {
-        if (Platform.OS === 'web') {
-          console.log(locationError);
-        } else {
-          Alert.alert('Location Error', locationError);
-        }
+      const loc = await detectAndSetLocation();
+      if (loc) {
+        setCity(loc.city);
+        setCountry(loc.country);
+        Alert.alert('Success', `Location detected: ${loc.city}, ${loc.country}`);
       }
-    } catch (error) {
-      console.error('Error detecting location:', error);
-      if (Platform.OS === 'web') {
-        console.log('Unable to detect your location. Please try again or enter it manually.');
-      } else {
-        Alert.alert('Error', 'Unable to detect your location. Please try again or enter it manually.');
-      }
+    } catch (err) {
+      console.warn(err);
+      Alert.alert('Error', 'Unable to detect location.');
     }
   };
 
+  // Save profile
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
-    }
-
-    if (name.length > 100) {
-      Alert.alert('Error', 'Name is too long (max 100 characters)');
-      return;
-    }
-
-    if (bio.length > 500) {
-      Alert.alert('Error', 'Bio is too long (max 500 characters)');
-      return;
-    }
+    if (!name.trim()) return Alert.alert('Error', 'Name is required');
+    if (name.length > 100) return Alert.alert('Error', 'Name too long (max 100)');
+    if (bio.length > 500) return Alert.alert('Error', 'Bio too long (max 500)');
 
     setIsLoading(true);
     try {
-      const sanitizedName = name.trim();
-      const sanitizedBio = bio.trim();
       const sanitizedCity = city.trim();
       const sanitizedCountry = country.trim();
 
+      let locationData;
+      try {
+        const loc = await detectAndSetLocation();
+        if (loc) locationData = { latitude: loc.lat, longitude: loc.lon };
+      } catch {}
+
       await updateProfile({
-        name: sanitizedName,
-        bio: sanitizedBio,
+        name: name.trim(),
+        bio: bio.trim(),
         hobbies,
         interests,
         city: sanitizedCity,
         country: sanitizedCountry,
         profilePhoto,
         photo: profilePhoto,
-        location: sanitizedCity && sanitizedCountry ? {
-          latitude: 0, // Will be updated by location detection
-          longitude: 0
-        } : undefined,
+        location: locationData || undefined,
       });
 
       if (sanitizedCity && sanitizedCountry) {
         await updateUserLocation(sanitizedCity, sanitizedCountry);
       }
 
-      if (Platform.OS === 'web') {
-        console.log(`Profile saved. Centering map to ${sanitizedCity}, ${sanitizedCountry}`);
-      } else {
-        Alert.alert('Profile Saved', `Profile updated${sanitizedCity && sanitizedCountry ? ` with location: ${sanitizedCity}, ${sanitizedCountry}` : ''}`);
-      }
-
+      Alert.alert('Profile Saved', `Updated${sanitizedCity && sanitizedCountry ? ` with location: ${sanitizedCity}, ${sanitizedCountry}` : ''}`);
       router.back();
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert('Error', err.message || 'Failed to update profile.');
     } finally {
       setIsLoading(false);
     }
@@ -205,11 +153,7 @@ export default function EditProfileScreen() {
           headerStyle: { backgroundColor: Colors.light.background },
           headerTintColor: Colors.light.text,
           headerRight: () => (
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={isLoading}
-              style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
-            >
+            <TouchableOpacity onPress={handleSave} disabled={isLoading} style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}>
               <Save color={isLoading ? Colors.light.textSecondary : Colors.light.tint} size={20} />
             </TouchableOpacity>
           ),
@@ -217,20 +161,16 @@ export default function EditProfileScreen() {
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Profile Photo Section */}
+        {/* Profile Photo */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Profile Photo</Text>
           <View style={styles.photoContainer}>
             <TouchableOpacity style={styles.photoButton} onPress={handleImagePicker}>
-              {profilePhoto && profilePhoto.trim() ? (
-                <Image 
-                  source={{ uri: profilePhoto }} 
+              {profilePhoto ? (
+                <Image
+                  source={{ uri: profilePhoto }}
                   style={styles.profileImage}
-                  defaultSource={require('@/assets/images/icon.png')}
-                  onError={() => {
-                    console.log('Profile image failed to load, clearing invalid URL');
-                    setProfilePhoto('');
-                  }}
+                  onError={() => setProfilePhoto('')}
                 />
               ) : (
                 <View style={styles.placeholderPhoto}>
@@ -244,22 +184,13 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Basic Info Section */}
+        {/* Basic Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
-          
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Display Name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter your display name"
-              placeholderTextColor={Colors.light.textSecondary}
-              maxLength={100}
-            />
+            <TextInput style={styles.textInput} value={name} onChangeText={setName} placeholder="Enter name" placeholderTextColor={Colors.light.textSecondary} maxLength={100} />
           </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Bio</Text>
             <TextInput
@@ -276,317 +207,123 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
-        {/* Location Section */}
+        {/* Location */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Location</Text>
-            <TouchableOpacity
-              style={styles.locationButton}
-              onPress={handleLocationPermission}
-              disabled={isLoadingLocation}
-            >
+            <TouchableOpacity style={styles.locationButton} onPress={handleLocationPermission} disabled={isLoadingLocation}>
               <MapPin color={Colors.light.tint} size={16} />
-              <Text style={styles.locationButtonText}>
-                {isLoadingLocation ? 'Detecting...' : 'Auto-detect'}
-              </Text>
+              <Text style={styles.locationButtonText}>{isLoadingLocation ? 'Detecting...' : 'Auto-detect'}</Text>
             </TouchableOpacity>
           </View>
-          
-          {locationError && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{locationError}</Text>
-            </View>
-          )}
-          
+          {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
           <View style={styles.locationRow}>
-            <View style={[styles.inputGroup, styles.locationInput]}>
-              <Text style={styles.inputLabel}>City</Text>
-              <TextInput
-                style={styles.textInput}
-                value={city}
-                onChangeText={(text) => {
-                  setCity(text);
-                  if (locationError) clearLocationError();
-                }}
-                placeholder="Enter your city"
-                placeholderTextColor={Colors.light.textSecondary}
-                maxLength={100}
-              />
-            </View>
-            
-            <View style={[styles.inputGroup, styles.locationInput]}>
-              <Text style={styles.inputLabel}>Country</Text>
-              <TextInput
-                style={styles.textInput}
-                value={country}
-                onChangeText={(text) => {
-                  setCountry(text);
-                  if (locationError) clearLocationError();
-                }}
-                placeholder="Enter your country"
-                placeholderTextColor={Colors.light.textSecondary}
-                maxLength={100}
-              />
-            </View>
+            <TextInput style={[styles.textInput, styles.locationInput]} value={city} onChangeText={(t) => { setCity(t); if (locationError) clearLocationError(); }} placeholder="City" placeholderTextColor={Colors.light.textSecondary} />
+            <TextInput style={[styles.textInput, styles.locationInput]} value={country} onChangeText={(t) => { setCountry(t); if (locationError) clearLocationError(); }} placeholder="Country" placeholderTextColor={Colors.light.textSecondary} />
           </View>
         </View>
 
-        {/* Hobbies Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hobbies</Text>
-          
-          <View style={styles.addHobbyContainer}>
-            <TextInput
-              style={[styles.textInput, styles.hobbyInput]}
-              value={newHobby}
-              onChangeText={setNewHobby}
-              placeholder="Add a hobby..."
-              placeholderTextColor={Colors.light.textSecondary}
-              maxLength={50}
-              onSubmitEditing={handleAddHobby}
-            />
-            <TouchableOpacity
-              style={styles.addHobbyButton}
-              onPress={handleAddHobby}
-              disabled={!newHobby.trim()}
-            >
-              <Plus color={Colors.light.background} size={20} />
-            </TouchableOpacity>
-          </View>
+        {/* Hobbies */}
+        <ProfileListSection
+          title="Hobbies"
+          items={hobbies}
+          newItem={newHobby}
+          onNewItemChange={setNewHobby}
+          onAddItem={() => handleAddItem(newHobby, hobbies, setHobbies)}
+          onRemoveItem={(index) => handleRemoveItem(index, hobbies, setHobbies)}
+        />
 
-          <View style={styles.hobbiesContainer}>
-            {hobbies.map((hobby, index) => (
-              <View key={`${hobby}-${index}`} style={styles.hobbyTag}>
-                <Text style={styles.hobbyText}>{hobby}</Text>
-                <TouchableOpacity
-                  style={styles.removeHobbyButton}
-                  onPress={() => handleRemoveHobby(index)}
-                >
-                  <X color={Colors.light.textSecondary} size={14} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-          
-          {hobbies.length === 0 && (
-            <Text style={styles.emptyText}>No hobbies added yet</Text>
-          )}
-        </View>
-
-        {/* Interests Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Interests</Text>
-          
-          <View style={styles.addHobbyContainer}>
-            <TextInput
-              style={[styles.textInput, styles.hobbyInput]}
-              value={newInterest}
-              onChangeText={setNewInterest}
-              placeholder="Add an interest..."
-              placeholderTextColor={Colors.light.textSecondary}
-              maxLength={50}
-              onSubmitEditing={handleAddInterest}
-            />
-            <TouchableOpacity
-              style={styles.addHobbyButton}
-              onPress={handleAddInterest}
-              disabled={!newInterest.trim()}
-            >
-              <Plus color={Colors.light.background} size={20} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.hobbiesContainer}>
-            {interests.map((interest, index) => (
-              <View key={`${interest}-${index}`} style={styles.hobbyTag}>
-                <Text style={styles.hobbyText}>{interest}</Text>
-                <TouchableOpacity
-                  style={styles.removeHobbyButton}
-                  onPress={() => handleRemoveInterest(index)}
-                >
-                  <X color={Colors.light.textSecondary} size={14} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-          
-          {interests.length === 0 && (
-            <Text style={styles.emptyText}>No interests added yet</Text>
-          )}
-        </View>
+        {/* Interests */}
+        <ProfileListSection
+          title="Interests"
+          items={interests}
+          newItem={newInterest}
+          onNewItemChange={setNewInterest}
+          onAddItem={() => handleAddItem(newInterest, interests, setInterests)}
+          onRemoveItem={(index) => handleRemoveItem(index, interests, setInterests)}
+        />
       </ScrollView>
     </View>
   );
 }
 
+// Reusable component for Hobbies/Interests
+function ProfileListSection({
+  title,
+  items,
+  newItem,
+  onNewItemChange,
+  onAddItem,
+  onRemoveItem,
+}: {
+  title: string;
+  items: string[];
+  newItem: string;
+  onNewItemChange: (text: string) => void;
+  onAddItem: () => void;
+  onRemoveItem: (index: number) => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.addHobbyContainer}>
+        <TextInput
+          style={[styles.textInput, styles.hobbyInput]}
+          value={newItem}
+          onChangeText={onNewItemChange}
+          placeholder={`Add a ${title.slice(0, -1).toLowerCase()}...`}
+          placeholderTextColor={Colors.light.textSecondary}
+          maxLength={50}
+          onSubmitEditing={onAddItem}
+        />
+        <TouchableOpacity style={styles.addHobbyButton} onPress={onAddItem} disabled={!newItem.trim()}>
+          <Plus color={Colors.light.background} size={20} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.hobbiesContainer}>
+        {items.map((item, index) => (
+          <View key={`${item}-${index}`} style={styles.hobbyTag}>
+            <Text style={styles.hobbyText}>{item}</Text>
+            <TouchableOpacity style={styles.removeHobbyButton} onPress={() => onRemoveItem(index)}>
+              <X color={Colors.light.textSecondary} size={14} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+      {items.length === 0 && <Text style={styles.emptyText}>No {title.toLowerCase()} added yet</Text>}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
-  content: {
-    flex: 1,
-  },
-  saveButton: {
-    padding: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  section: {
-    backgroundColor: Colors.light.background,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 16,
-  },
-  photoContainer: {
-    alignItems: 'center',
-  },
-  photoButton: {
-    position: 'relative',
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  placeholderPhoto: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.light.backgroundSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: Colors.light.tint,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.light.background,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.light.text,
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: Colors.light.text,
-    backgroundColor: Colors.light.background,
-  },
-  bioInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  characterCount: {
-    fontSize: 12,
-    color: Colors.light.textSecondary,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.light.tint + '11',
-    borderRadius: 16,
-  },
-  locationButtonText: {
-    fontSize: 12,
-    color: Colors.light.tint,
-    fontWeight: '500',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  locationInput: {
-    flex: 1,
-  },
-  addHobbyContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  hobbyInput: {
-    flex: 1,
-  },
-  addHobbyButton: {
-    backgroundColor: Colors.light.tint,
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hobbiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  hobbyTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.backgroundSecondary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  hobbyText: {
-    fontSize: 14,
-    color: Colors.light.text,
-  },
-  removeHobbyButton: {
-    padding: 2,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  errorContainer: {
-    backgroundColor: Colors.light.error + '11',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.light.error + '33',
-  },
-  errorText: {
-    color: Colors.light.error,
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: Colors.light.backgroundSecondary },
+  content: { flex: 1 },
+  saveButton: { padding: 8 },
+  saveButtonDisabled: { opacity: 0.5 },
+  section: { backgroundColor: Colors.light.background, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, padding: 16 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: Colors.light.text, marginBottom: 16 },
+  photoContainer: { alignItems: 'center' },
+  photoButton: { position: 'relative' },
+  profileImage: { width: 100, height: 100, borderRadius: 50 },
+  placeholderPhoto: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.light.backgroundSecondary, justifyContent: 'center', alignItems: 'center' },
+  photoOverlay: { position: 'absolute', bottom: 0, right: 0, backgroundColor: Colors.light.tint, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.light.background },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 14, fontWeight: '500', color: Colors.light.text, marginBottom: 8 },
+  textInput: { borderWidth: 1, borderColor: Colors.light.border, borderRadius: 8, padding: 12, fontSize: 16, color: Colors.light.text, backgroundColor: Colors.light.background },
+  bioInput: { height: 80, textAlignVertical: 'top' },
+  characterCount: { fontSize: 12, color: Colors.light.textSecondary, textAlign: 'right', marginTop: 4 },
+  locationButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: Colors.light.tint + '11', borderRadius: 16 },
+  locationButtonText: { fontSize: 12, color: Colors.light.tint, fontWeight: '500' },
+  locationRow: { flexDirection: 'row', gap: 12 },
+  locationInput: { flex: 1 },
+  addHobbyContainer: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  hobbyInput: { flex: 1 },
+  addHobbyButton: { backgroundColor: Colors.light.tint, width: 44, height: 44, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  hobbiesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  hobbyTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.light.backgroundSecondary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, gap: 6 },
+  hobbyText: { fontSize: 14, color: Colors.light.text },
+  removeHobbyButton: { padding: 2 },
+  emptyText: { fontSize: 14, color: Colors.light.textSecondary, textAlign: 'center', fontStyle: 'italic' },
+  errorText: { color: Colors.light.error, fontSize: 14, textAlign: 'center', marginBottom: 8 },
 });
