@@ -6,9 +6,15 @@ export interface User {
   bio?: string;
   joinedDate: string;
   hobbies?: string[];
+  interests?: string[];
   city?: string;
   country?: string;
   profilePhoto?: string;
+  photo?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export interface Location {

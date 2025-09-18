@@ -26,10 +26,12 @@ export default function EditProfileScreen() {
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [hobbies, setHobbies] = useState<string[]>(user?.hobbies || []);
+  const [interests, setInterests] = useState<string[]>(user?.interests || []);
   const [city, setCity] = useState(user?.city || userCity || '');
   const [country, setCountry] = useState(user?.country || userCountry || '');
-  const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || '');
+  const [profilePhoto, setProfilePhoto] = useState(user?.profilePhoto || user?.photo || '');
   const [newHobby, setNewHobby] = useState('');
+  const [newInterest, setNewInterest] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleImagePicker = async () => {
@@ -83,6 +85,30 @@ export default function EditProfileScreen() {
 
   const handleRemoveHobby = (index: number) => {
     setHobbies(hobbies.filter((_, i) => i !== index));
+  };
+
+  const handleAddInterest = () => {
+    if (!newInterest.trim()) return;
+    
+    if (newInterest.length > 50) {
+      Alert.alert('Error', 'Interest name is too long (max 50 characters)');
+      return;
+    }
+    
+    if (interests.length >= 10) {
+      Alert.alert('Limit Reached', 'You can only add up to 10 interests');
+      return;
+    }
+    
+    const sanitizedInterest = newInterest.trim();
+    if (!interests.includes(sanitizedInterest)) {
+      setInterests([...interests, sanitizedInterest]);
+      setNewInterest('');
+    }
+  };
+
+  const handleRemoveInterest = (index: number) => {
+    setInterests(interests.filter((_, i) => i !== index));
   };
 
   const handleLocationPermission = async () => {
@@ -141,9 +167,15 @@ export default function EditProfileScreen() {
         name: sanitizedName,
         bio: sanitizedBio,
         hobbies,
+        interests,
         city: sanitizedCity,
         country: sanitizedCountry,
         profilePhoto,
+        photo: profilePhoto,
+        location: sanitizedCity && sanitizedCountry ? {
+          latitude: 0, // Will be updated by location detection
+          longitude: 0
+        } : undefined,
       });
 
       if (sanitizedCity && sanitizedCountry) {
@@ -301,7 +333,7 @@ export default function EditProfileScreen() {
 
         {/* Hobbies Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hobbies & Interests</Text>
+          <Text style={styles.sectionTitle}>Hobbies</Text>
           
           <View style={styles.addHobbyContainer}>
             <TextInput
@@ -338,6 +370,48 @@ export default function EditProfileScreen() {
           
           {hobbies.length === 0 && (
             <Text style={styles.emptyText}>No hobbies added yet</Text>
+          )}
+        </View>
+
+        {/* Interests Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Interests</Text>
+          
+          <View style={styles.addHobbyContainer}>
+            <TextInput
+              style={[styles.textInput, styles.hobbyInput]}
+              value={newInterest}
+              onChangeText={setNewInterest}
+              placeholder="Add an interest..."
+              placeholderTextColor={Colors.light.textSecondary}
+              maxLength={50}
+              onSubmitEditing={handleAddInterest}
+            />
+            <TouchableOpacity
+              style={styles.addHobbyButton}
+              onPress={handleAddInterest}
+              disabled={!newInterest.trim()}
+            >
+              <Plus color={Colors.light.background} size={20} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.hobbiesContainer}>
+            {interests.map((interest, index) => (
+              <View key={`${interest}-${index}`} style={styles.hobbyTag}>
+                <Text style={styles.hobbyText}>{interest}</Text>
+                <TouchableOpacity
+                  style={styles.removeHobbyButton}
+                  onPress={() => handleRemoveInterest(index)}
+                >
+                  <X color={Colors.light.textSecondary} size={14} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          
+          {interests.length === 0 && (
+            <Text style={styles.emptyText}>No interests added yet</Text>
           )}
         </View>
       </ScrollView>

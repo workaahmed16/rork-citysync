@@ -118,9 +118,9 @@ onPress={() => console.log('Settings coming soon')}
       <ScrollView style={styles.content}>
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            {user.profilePhoto && user.profilePhoto.trim() ? (
+            {(user.profilePhoto || user.photo) && (user.profilePhoto?.trim() || user.photo?.trim()) ? (
               <Image 
-                source={{ uri: user.profilePhoto }} 
+                source={{ uri: user.profilePhoto || user.photo }} 
                 style={styles.avatar}
                 defaultSource={require('@/assets/images/icon.png')}
                 onError={() => console.log('Profile image failed to load')}
@@ -156,16 +156,21 @@ onPress={() => console.log('Settings coming soon')}
             <Text style={styles.userBio}>{user.bio}</Text>
           )}
           
-          {user.hobbies && user.hobbies.length > 0 && (
+          {((user.hobbies && user.hobbies.length > 0) || (user.interests && user.interests.length > 0)) && (
             <View style={styles.hobbiesContainer}>
-              {user.hobbies.slice(0, 3).map((hobby, index) => (
-                <View key={`${hobby}-${index}`} style={styles.hobbyTag}>
+              {user.hobbies && user.hobbies.slice(0, 2).map((hobby, index) => (
+                <View key={`hobby-${hobby}-${index}`} style={styles.hobbyTag}>
                   <Text style={styles.hobbyText}>{hobby}</Text>
                 </View>
               ))}
-              {user.hobbies.length > 3 && (
+              {user.interests && user.interests.slice(0, 2).map((interest, index) => (
+                <View key={`interest-${interest}-${index}`} style={[styles.hobbyTag, styles.interestTag]}>
+                  <Text style={[styles.hobbyText, styles.interestText]}>{interest}</Text>
+                </View>
+              ))}
+              {((user.hobbies?.length || 0) + (user.interests?.length || 0)) > 4 && (
                 <View style={styles.hobbyTag}>
-                  <Text style={styles.hobbyText}>+{user.hobbies.length - 3} more</Text>
+                  <Text style={styles.hobbyText}>+{((user.hobbies?.length || 0) + (user.interests?.length || 0)) - 4} more</Text>
                 </View>
               )}
             </View>
@@ -374,6 +379,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.text,
     fontWeight: '500',
+  },
+  interestTag: {
+    backgroundColor: Colors.light.tint + '11',
+    borderWidth: 1,
+    borderColor: Colors.light.tint + '33',
+  },
+  interestText: {
+    color: Colors.light.tint,
   },
   statsContainer: {
     flexDirection: 'row',
