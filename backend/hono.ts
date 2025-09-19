@@ -32,8 +32,14 @@ app.onError((err, c) => {
 app.use('*', async (c, next) => {
   console.log(`${c.req.method} ${c.req.url}`);
   console.log('Headers:', Object.fromEntries(c.req.raw.headers.entries()));
+  if (c.req.url.includes('trpc')) {
+    console.log('tRPC request detected, path:', c.req.url);
+  }
   await next();
 });
+
+// Debug: Log the router before mounting
+console.log('Mounting tRPC router with procedures:', Object.keys(appRouter._def.procedures || {}));
 
 // Mount tRPC router at /trpc
 app.use(
@@ -45,6 +51,7 @@ app.use(
     onError: ({ error, path }) => {
       console.error('tRPC error on path:', path, 'Error:', error);
       console.error('Full error details:', error);
+      console.error('Available procedures:', Object.keys(appRouter._def.procedures || {}));
     },
   })
 );

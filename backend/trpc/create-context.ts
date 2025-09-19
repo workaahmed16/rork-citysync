@@ -46,12 +46,15 @@ export const publicProcedure = t.procedure;
 
 // Protected procedure that requires authentication
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+  console.log('Protected procedure middleware called with ctx.user:', ctx.user);
   if (!ctx.user || !ctx.user.id) {
+    console.log('Authentication failed - no user or user ID');
     throw new TRPCError({
       code: 'UNAUTHORIZED',
       message: 'You must be logged in to access this resource',
     });
   }
+  console.log('Authentication successful for user:', ctx.user.id);
   return next({
     ctx: {
       ...ctx,
@@ -59,3 +62,6 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
     },
   });
 });
+
+// Debug: Log that tRPC is initialized
+console.log('tRPC initialized with context and procedures');

@@ -1,7 +1,16 @@
 import { z } from 'zod';
-import { protectedProcedure } from '@/backend/trpc/create-context';
+import { protectedProcedure, publicProcedure } from '@/backend/trpc/create-context';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+
+// Debug: Log that this file is being loaded
+console.log('Loading user profile routes...');
+
+// Simple test procedure to verify basic functionality
+export const simpleGetProfileProcedure = publicProcedure.query(() => {
+  console.log('Simple getProfile procedure called');
+  return { message: 'Simple getProfile working', data: { name: 'Test User', bio: 'Test Bio' } };
+});
 
 const profileSchema = z.object({
   name: z.string().optional(),
@@ -82,3 +91,8 @@ export const getProfileProcedure = protectedProcedure
       throw new Error(`Failed to get profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
+
+// Debug: Log that procedures are created
+console.log('User profile procedures created:');
+console.log('- updateProfileProcedure:', typeof updateProfileProcedure);
+console.log('- getProfileProcedure:', typeof getProfileProcedure);

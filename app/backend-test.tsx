@@ -145,6 +145,32 @@ export default function BackendTestScreen() {
     }
   };
 
+  const handleTestGetProfileTest = async () => {
+    setIsTestingBackend(true);
+    try {
+      console.log('Testing testGetProfile (public)...');
+      const result = await trpcClient.user.testGetProfile.query();
+      console.log('testGetProfile result:', result);
+      
+      const message = `Test Profile data: ${JSON.stringify(result, null, 2)}`;
+      if (Platform.OS === 'web') {
+        console.log('Success!', message);
+      } else {
+        Alert.alert('Success!', message);
+      }
+    } catch (error: any) {
+      console.error('testGetProfile error:', error);
+      const message = `testGetProfile failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error('Error', message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsTestingBackend(false);
+    }
+  };
+
   const handleTestLogin = async () => {
     console.log('Testing login with:', testEmail);
     const success = await login(testEmail, testPassword);
@@ -322,9 +348,16 @@ export default function BackendTestScreen() {
             
             <TouchableOpacity 
               style={styles.button}
+              onPress={handleTestGetProfileTest}
+            >
+              <Text style={styles.buttonText}>Test Get Profile (Public)</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.button}
               onPress={handleGetProfileTest}
             >
-              <Text style={styles.buttonText}>Test Get Profile</Text>
+              <Text style={styles.buttonText}>Test Get Profile (Protected)</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
