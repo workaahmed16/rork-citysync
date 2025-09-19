@@ -3,9 +3,9 @@ import { publicProcedure } from "@/backend/trpc/create-context";
 
 export default publicProcedure
   .input(z.object({ name: z.string() }))
-  .mutation(({ input }) => {
+  .query(({ input }) => {
     return {
-      hello: input.name,
-      date: new Date(),
+      hello: `Hello ${input.name}!`,
+      date: new Date().toISOString(),
     };
   });

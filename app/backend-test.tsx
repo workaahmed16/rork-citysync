@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { trpc } from '@/lib/trpc';
+import { trpcClient } from '@/lib/trpc';
 import { useAuth } from '@/contexts/auth-context';
 import { auth } from '@/lib/firebase';
 
@@ -13,24 +13,42 @@ export default function BackendTestScreen() {
   const [testBio, setTestBio] = useState<string>('This is a test bio');
   const { user, firebaseUser, isLoading, login, register, updateProfile } = useAuth();
   
-  const hiMutation = trpc.example.hi.useMutation({
-    onSuccess: (data) => {
-      if (Platform.OS === 'web') {
-        console.log('Success!', `Backend says: ${data.hello} at ${data.date}`);
-      } else {
-        Alert.alert('Success!', `Backend says: ${data.hello} at ${data.date}`);
-      }
-    },
-    onError: (error) => {
-      if (Platform.OS === 'web') {
-        console.error('Error', error.message);
-      } else {
-        Alert.alert('Error', error.message);
-      }
-    },
-  });
+  const [isTestingBackend, setIsTestingBackend] = useState<boolean>(false);
+  const [isTestingHealth, setIsTestingHealth] = useState<boolean>(false);
 
-  const handleTest = () => {
+  const handleHealthCheck = async () => {
+    setIsTestingHealth(true);
+    try {
+      const baseUrl = __DEV__ ? 
+        (Platform.OS === 'web' ? 'http://localhost:3000' : 
+         Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000') : 
+        process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+      
+      console.log('Testing health check at:', `${baseUrl}/api/health`);
+      const response = await fetch(`${baseUrl}/api/health`);
+      const data = await response.json();
+      
+      console.log('Health check result:', data);
+      const message = `Health check successful: ${data.message}`;
+      if (Platform.OS === 'web') {
+        console.log('Success!', message);
+      } else {
+        Alert.alert('Success!', message);
+      }
+    } catch (error: any) {
+      console.error('Health check error:', error);
+      const message = `Health check failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error('Error', message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsTestingHealth(false);
+    }
+  };
+
+  const handleTest = async () => {
     if (!name.trim()) {
       if (Platform.OS === 'web') {
         console.error('Error', 'Please enter a name');
@@ -39,7 +57,30 @@ export default function BackendTestScreen() {
       }
       return;
     }
-    hiMutation.mutate({ name: name.trim() });
+    
+    setIsTestingBackend(true);
+    try {
+      console.log('Testing backend with name:', name.trim());
+      const result = await trpcClient.example.hi.query({ name: name.trim() });
+      console.log('Backend test result:', result);
+      
+      const message = `Backend says: ${result.hello} at ${result.date}`;
+      if (Platform.OS === 'web') {
+        console.log('Success!', message);
+      } else {
+        Alert.alert('Success!', message);
+      }
+    } catch (error: any) {
+      console.error('Backend test error:', error);
+      const message = `Backend test failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error('Error', message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsTestingBackend(false);
+    }
   };
 
   const handleTestLogin = async () => {
@@ -119,6 +160,20 @@ export default function BackendTestScreen() {
           <Text style={styles.statusText}>Auth Instance: {auth ? 'Initialized' : 'Not initialized'}</Text>
         </View>
         
+        {/* Backend Health Check */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Backend Health Check</Text>
+          <TouchableOpacity 
+            style={[styles.button, isTestingHealth && styles.buttonDisabled]} 
+            onPress={handleHealthCheck}
+            disabled={isTestingHealth}
+          >
+            <Text style={styles.buttonText}>
+              {isTestingHealth ? 'Checking...' : 'Test Backend Connection'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
         {/* tRPC Test */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>tRPC Test</Text>
@@ -131,12 +186,12 @@ export default function BackendTestScreen() {
           />
           
           <TouchableOpacity 
-            style={[styles.button, hiMutation.isPending && styles.buttonDisabled]} 
+            style={[styles.button, isTestingBackend && styles.buttonDisabled]} 
             onPress={handleTest}
-            disabled={hiMutation.isPending}
+            disabled={isTestingBackend}
           >
             <Text style={styles.buttonText}>
-              {hiMutation.isPending ? 'Testing...' : 'Test Backend'}
+              {isTestingBackend ? 'Testing...' : 'Test tRPC'}
             </Text>
           </TouchableOpacity>
         </View>
