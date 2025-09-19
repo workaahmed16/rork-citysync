@@ -28,6 +28,13 @@ app.onError((err, c) => {
   );
 });
 
+// Add debugging middleware to log all requests
+app.use('*', async (c, next) => {
+  console.log(`${c.req.method} ${c.req.url}`);
+  console.log('Headers:', Object.fromEntries(c.req.raw.headers.entries()));
+  await next();
+});
+
 // Mount tRPC router at /trpc
 app.use(
   "/trpc/*",
@@ -37,6 +44,7 @@ app.use(
     createContext,
     onError: ({ error, path }) => {
       console.error('tRPC error on path:', path, 'Error:', error);
+      console.error('Full error details:', error);
     },
   })
 );

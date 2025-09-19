@@ -83,6 +83,68 @@ export default function BackendTestScreen() {
     }
   };
 
+  const handleDebugTest = async () => {
+    setIsTestingBackend(true);
+    try {
+      console.log('Testing debug endpoint...');
+      const result = await trpcClient.debug.query();
+      console.log('Debug test result:', result);
+      
+      const message = `Debug: ${result.message}\nRoutes: ${JSON.stringify(result.routes, null, 2)}`;
+      if (Platform.OS === 'web') {
+        console.log('Success!', message);
+      } else {
+        Alert.alert('Success!', message);
+      }
+    } catch (error: any) {
+      console.error('Debug test error:', error);
+      const message = `Debug test failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error('Error', message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsTestingBackend(false);
+    }
+  };
+
+  const handleGetProfileTest = async () => {
+    if (!user || !firebaseUser) {
+      const message = 'Please login first to test getProfile';
+      if (Platform.OS === 'web') {
+        console.error(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+      return;
+    }
+
+    setIsTestingBackend(true);
+    try {
+      console.log('Testing getProfile...');
+      const result = await trpcClient.user.getProfile.query();
+      console.log('getProfile result:', result);
+      
+      const message = `Profile data: ${JSON.stringify(result, null, 2)}`;
+      if (Platform.OS === 'web') {
+        console.log('Success!', message);
+      } else {
+        Alert.alert('Success!', message);
+      }
+    } catch (error: any) {
+      console.error('getProfile error:', error);
+      const message = `getProfile failed: ${error.message || 'Unknown error'}`;
+      if (Platform.OS === 'web') {
+        console.error('Error', message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsTestingBackend(false);
+    }
+  };
+
   const handleTestLogin = async () => {
     console.log('Testing login with:', testEmail);
     const success = await login(testEmail, testPassword);
@@ -191,7 +253,17 @@ export default function BackendTestScreen() {
             disabled={isTestingBackend}
           >
             <Text style={styles.buttonText}>
-              {isTestingBackend ? 'Testing...' : 'Test tRPC'}
+              {isTestingBackend ? 'Testing...' : 'Test tRPC Hi'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.button, isTestingBackend && styles.buttonDisabled]} 
+            onPress={handleDebugTest}
+            disabled={isTestingBackend}
+          >
+            <Text style={styles.buttonText}>
+              {isTestingBackend ? 'Testing...' : 'Test Debug Route'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -247,6 +319,13 @@ export default function BackendTestScreen() {
               onChangeText={setTestBio}
               multiline
             />
+            
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={handleGetProfileTest}
+            >
+              <Text style={styles.buttonText}>Test Get Profile</Text>
+            </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.button}

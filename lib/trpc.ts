@@ -47,6 +47,30 @@ export const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
+      // Add debugging to see the actual URL being used
+      fetch: async (url, options) => {
+        console.log('tRPC request URL:', url);
+        console.log('tRPC request method:', options?.method || 'GET');
+        console.log('tRPC request headers:', options?.headers);
+        try {
+          const response = await fetch(url, {
+            ...options,
+            headers: {
+              ...options?.headers,
+            },
+          });
+          console.log('tRPC response status:', response.status);
+          if (!response.ok) {
+            const text = await response.text();
+            console.error('tRPC error response:', text);
+            throw new Error(`HTTP ${response.status}: ${text}`);
+          }
+          return response;
+        } catch (error) {
+          console.error('tRPC fetch error:', error);
+          throw error;
+        }
+      },
       transformer: superjson,
       headers: async () => {
         try {
@@ -67,27 +91,7 @@ export const trpcClient = createTRPCClient<AppRouter>({
           };
         }
       },
-      fetch: async (url, options) => {
-        console.log('tRPC request:', url, options?.method || 'GET');
-        try {
-          const response = await fetch(url, {
-            ...options,
-            headers: {
-              ...options?.headers,
-            },
-          });
-          console.log('tRPC response status:', response.status);
-          if (!response.ok) {
-            const text = await response.text();
-            console.error('tRPC error response:', text);
-            throw new Error(`HTTP ${response.status}: ${text}`);
-          }
-          return response;
-        } catch (error) {
-          console.error('tRPC fetch error:', error);
-          throw error;
-        }
-      },
+
     }),
   ],
 });

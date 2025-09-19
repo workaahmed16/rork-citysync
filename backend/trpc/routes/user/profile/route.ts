@@ -62,18 +62,23 @@ export const updateProfileProcedure = protectedProcedure
 export const getProfileProcedure = protectedProcedure
   .query(async ({ ctx }: { ctx: any }) => {
     const userId = ctx.user.id;
+    console.log('getProfile called for user:', userId);
     const userRef = doc(db, 'users', userId);
     
     try {
+      console.log('Fetching user document from Firestore...');
       const userDoc = await getDoc(userRef);
       
       if (userDoc.exists()) {
-        return userDoc.data();
+        const data = userDoc.data();
+        console.log('User document found:', data);
+        return data;
       } else {
+        console.log('No user document found for user:', userId);
         return null;
       }
     } catch (error) {
-      console.error('Error getting profile:', error);
-      throw new Error('Failed to get profile');
+      console.error('Error getting profile for user:', userId, error);
+      throw new Error(`Failed to get profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
