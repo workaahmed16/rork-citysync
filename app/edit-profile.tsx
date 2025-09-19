@@ -45,12 +45,14 @@ export default function EditProfileScreen() {
   // --- Image Picker ---
   const handleImagePicker = async () => {
     if (Platform.OS === 'web') {
-      Alert.alert('Not Available', 'Image picker is only available on mobile.');
-      return;
+      return Alert.alert('Not Available', 'Image picker is only available on mobile.');
     }
+
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') return Alert.alert('Permission Required', 'Grant camera roll permissions.');
+      if (status !== 'granted') {
+        return Alert.alert('Permission Required', 'Please grant camera roll permissions.');
+      }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -59,10 +61,12 @@ export default function EditProfileScreen() {
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) setProfilePhoto(result.assets[0].uri);
-    } catch (err) {
-      console.error('Image Picker Error:', err);
-      Alert.alert('Error', 'Failed to pick image.');
+      if (!result.canceled && result.assets[0]?.uri) {
+        setProfilePhoto(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      console.error('[ERROR] Image Picker failed:', err);
+      Alert.alert('Image Picker Error', err?.message || 'Failed to pick image.');
     }
   };
 
@@ -70,9 +74,11 @@ export default function EditProfileScreen() {
   const handleAddItem = (item: string, list: string[], setter: (arr: string[]) => void) => {
     const trimmed = item.trim();
     if (!trimmed) return;
-    if (trimmed.length > 50) return Alert.alert('Error', 'Too long (max 50 chars)');
-    if (list.includes(trimmed)) return;
-    if (list.length >= 10) return Alert.alert('Limit Reached', 'Maximum 10 items allowed');
+
+    if (trimmed.length > 50) return Alert.alert('Input Error', 'Item too long (max 50 chars).');
+    if (list.includes(trimmed)) return Alert.alert('Duplicate Item', 'This item already exists.');
+    if (list.length >= 10) return Alert.alert('Limit Reached', 'Maximum 10 items allowed.');
+    
     setter([...list, trimmed]);
   };
 
@@ -85,34 +91,34 @@ export default function EditProfileScreen() {
     clearLocationError();
     try {
       const loc = await detectAndSetLocation();
-      if (loc) {
+      if (loc?.city && loc?.country) {
         setCity(loc.city);
         setCountry(loc.country);
         Alert.alert('Success', `Location detected: ${loc.city}, ${loc.country}`);
+      } else {
+        console.warn('[WARN] Location detection returned incomplete data:', loc);
+        Alert.alert('Location Error', 'Could not detect full location.');
       }
-    } catch (err) {
-      console.warn(err);
-      Alert.alert('Error', 'Unable to detect location.');
+    } catch (err: any) {
+      console.error('[ERROR] Location detection failed:', err);
+      Alert.alert('Location Error', err?.message || 'Unable to detect location.');
     }
   };
 
-  // --- Save Profile with safe JSON handling ---
+  // --- Save Profile ---
   const handleSave = async () => {
-    if (!name.trim()) return Alert.alert('Error', 'Name is required');
-    if (name.length > 100) return Alert.alert('Error', 'Name too long (max 100)');
-    if (bio.length > 500) return Alert.alert('Error', 'Bio too long (max 500)');
+    if (!name.trim()) return Alert.alert('Validation Error', 'Name is required.');
+    if (name.length > 100) return Alert.alert('Validation Error', 'Name too long (max 100).');
+    if (bio.length > 500) return Alert.alert('Validation Error', 'Bio too long (max 500).');
 
     setIsLoading(true);
+
     try {
       const sanitizedCity = city.trim();
       const sanitizedCountry = country.trim();
 
-      let locationData;
-      if (user?.location) {
-        locationData = user.location;
-      }
+      const locationData = sanitizedCity && sanitizedCountry ? { city: sanitizedCity, country: sanitizedCountry } : undefined;
 
-      // Update profile
       const response = await updateProfile({
         name: name.trim(),
         bio: bio.trim(),
@@ -122,18 +128,36 @@ export default function EditProfileScreen() {
         country: sanitizedCountry,
         profilePhoto,
         photo: profilePhoto,
-        location: locationData || undefined,
+        location: locationData,
       });
 
-      console.log('Profile update response:', response);
+      console.log('[INFO] Profile updated successfully:', response);
 
-      if (sanitizedCity && sanitizedCountry) await updateUserLocation(sanitizedCity, sanitizedCountry);
+      if (sanitizedCity && sanitizedCountry) {
+        try {
+          await updateUserLocation(sanitizedCity, sanitizedCountry);
+          console.log(`[INFO] Location updated: ${sanitizedCity}, ${sanitizedCountry}`);
+        } catch (locErr: any) {
+          console.error('[ERROR] Failed to update user location:', locErr);
+          Alert.alert('Location Update Failed', locErr?.message || 'Could not update your location.');
+        }
+      }
 
-      Alert.alert('Profile Saved', `Updated${sanitizedCity && sanitizedCountry ? ` with location: ${sanitizedCity}, ${sanitizedCountry}` : ''}`);
+      Alert.alert('Success', `Profile updated${locationData ? ` with location: ${sanitizedCity}, ${sanitizedCountry}` : ''}`);
       router.back();
+
     } catch (err: any) {
-      console.error('Profile Save Error:', err);
-      Alert.alert('Error', err?.message || 'Failed to update profile.');
+      console.error('[ERROR] Profile save failed:', err);
+
+      let errorMessage = 'Failed to update profile.';
+
+      if (err.name === 'TRPCClientError' && err.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot reach the server. Check your internet or backend connection.';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      Alert.alert('Profile Update Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +188,10 @@ export default function EditProfileScreen() {
                 <Image
                   source={{ uri: profilePhoto }}
                   style={styles.profileImage}
-                  onError={() => setProfilePhoto('')}
+                  onError={() => {
+                    console.warn('[WARN] Failed to load profile image, clearing...');
+                    setProfilePhoto('');
+                  }}
                 />
               ) : (
                 <View style={styles.placeholderPhoto}>
@@ -217,7 +244,7 @@ export default function EditProfileScreen() {
               <Text style={styles.locationButtonText}>{isLoadingLocation ? 'Detecting...' : 'Auto-detect'}</Text>
             </TouchableOpacity>
           </View>
-          {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+          {locationError && <Text style={styles.errorText}>{locationError}</Text>}
           <View style={styles.locationRow}>
             <TextInput
               style={[styles.textInput, styles.locationInput]}
@@ -261,13 +288,13 @@ export default function EditProfileScreen() {
 }
 
 // --- Profile List Section ---
-function ProfileListSection({ 
-  title, 
-  items, 
-  newItem, 
-  onNewItemChange, 
-  onAddItem, 
-  onRemoveItem 
+function ProfileListSection({
+  title,
+  items,
+  newItem,
+  onNewItemChange,
+  onAddItem,
+  onRemoveItem
 }: {
   title: string;
   items: string[];
@@ -294,7 +321,7 @@ function ProfileListSection({
         </TouchableOpacity>
       </View>
       <View style={styles.hobbiesContainer}>
-        {items.map((item: string, index: number) => (
+        {items.map((item, index) => (
           <View key={`${item}-${index}`} style={styles.hobbyTag}>
             <Text style={styles.hobbyText}>{item}</Text>
             <TouchableOpacity style={styles.removeHobbyButton} onPress={() => onRemoveItem(index)}>
